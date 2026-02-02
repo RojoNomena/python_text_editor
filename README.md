@@ -1,14 +1,16 @@
-# Python Text Editor
+# Python Text Editor (Tkinter)
 
-A simple text editor built with Python and Tkinter.
+A text editor built with Python and Tkinter.
 
 ## Features
-- Create, open, and save text files
-- Copy, cut, paste, undo, redo
+- Create, open, save text files
+- Undo / redo, copy, cut, paste
+- Search and highlight text
+- Font size and text color customization
+- Dark mode
+- Status bar (line & column)
 - Keyboard shortcuts
-- Clean and readable Tkinter code
 
 ## How to run
 ```bash
 python editeur_texte.py
-

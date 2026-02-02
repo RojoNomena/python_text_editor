@@ -1,243 +1,212 @@
-"""
-Éditeur de Texte Simple en Python avec Tkinter
-Ce programme implémente un éditeur de texte basique avec les fonctionnalités essentielles :
-- Création/ouverture/enregistrement de fichiers
-- Opérations d'édition de base (copier/coller/annuler)
-- Raccourcis clavier
-"""
-
-# Importation des modules nécessaires
-import tkinter as tk  # Pour l'interface graphique
-from tkinter import filedialog  # Pour les dialogues d'ouverture/enregistrement
-from tkinter import messagebox  # Pour les boîtes de message
+import tkinter as tk
+from tkinter import (
+    filedialog,
+    messagebox,
+    simpledialog,
+    colorchooser
+)
 
 
 class EditeurTexte:
     def __init__(self, root):
-        """
-        Initialise l'éditeur de texte avec la fenêtre principale
-        :param root: La fenêtre principale Tkinter
-        """
         self.root = root
-        # Configuration de la fenêtre principale
-        self.root.title("Éditeur de Texte Simple")  # Titre de la fenêtre
-        self.root.geometry("800x600")  # Taille par défaut (largeur x hauteur)
+        self.root.title("Éditeur de Texte Avancé")
+        self.root.geometry("900x600")
 
-        # ========== CRÉATION DU MENU PRINCIPAL ==========
-        self.menu_bar = tk.Menu(root)  # Barre de menu principale
+        self.fichier_courant = None
+        self.taille_police = 12
+        self.mode_sombre_actif = False
+        self.couleur_police = "black"
 
-        # ------ Menu Fichier ------
-        self.file_menu = tk.Menu(self.menu_bar, tearoff=0)  # tearoff=0 empêche le détachement
-        # Ajout des commandes avec raccourcis clavier
-        self.file_menu.add_command(
-            label="Nouveau",
-            command=self.nouveau_fichier,
-            accelerator="Ctrl+N"  # Affiche le raccourci dans le menu
-        )
-        self.file_menu.add_command(
-            label="Ouvrir",
-            command=self.ouvrir_fichier,
-            accelerator="Ctrl+O"
-        )
-        self.file_menu.add_command(
-            label="Enregistrer",
-            command=self.enregistrer_fichier,
-            accelerator="Ctrl+S"
-        )
-        self.file_menu.add_separator()  # Ligne de séparation
+        #création des menus
+        self.menu_bar = tk.Menu(root)
+
+        #menu fichier
+        self.file_menu = tk.Menu(self.menu_bar, tearoff=0)
+        self.file_menu.add_command(label="Nouveau", command=self.nouveau_fichier, accelerator="Ctrl+N")
+        self.file_menu.add_command(label="Ouvrir", command=self.ouvrir_fichier, accelerator="Ctrl+O")
+        self.file_menu.add_command(label="Enregistrer", command=self.enregistrer_fichier, accelerator="Ctrl+S")
+        self.file_menu.add_command(label="Enregistrer sous", command=self.enregistrer_sous)
+        self.file_menu.add_separator()
         self.file_menu.add_command(label="Quitter", command=self.quitter)
-        # Ajout du menu Fichier à la barre de menu
         self.menu_bar.add_cascade(label="Fichier", menu=self.file_menu)
 
-        # ------ Menu Édition ------
+        #menu édition
         self.edit_menu = tk.Menu(self.menu_bar, tearoff=0)
-        # Commandes d'édition avec raccourcis
-        self.edit_menu.add_command(
-            label="Annuler",
-            command=self.annuler,
-            accelerator="Ctrl+Z"
-        )
-        self.edit_menu.add_command(
-            label="Rétablir",
-            command=self.retablir,
-            accelerator="Ctrl+Y"
-        )
+        self.edit_menu.add_command(label="Annuler", command=self.annuler, accelerator="Ctrl+Z")
+        self.edit_menu.add_command(label="Rétablir", command=self.retablir, accelerator="Ctrl+Y")
         self.edit_menu.add_separator()
-        self.edit_menu.add_command(
-            label="Couper",
-            command=self.couper,
-            accelerator="Ctrl+X"
-        )
-        self.edit_menu.add_command(
-            label="Copier",
-            command=self.copier,
-            accelerator="Ctrl+C"
-        )
-        self.edit_menu.add_command(
-            label="Coller",
-            command=self.coller,
-            accelerator="Ctrl+V"
-        )
-        # Ajout du menu Édition à la barre de menu
+        self.edit_menu.add_command(label="Couper", command=self.couper, accelerator="Ctrl+X")
+        self.edit_menu.add_command(label="Copier", command=self.copier, accelerator="Ctrl+C")
+        self.edit_menu.add_command(label="Coller", command=self.coller, accelerator="Ctrl+V")
+        self.edit_menu.add_separator()
+        self.edit_menu.add_command(label="Rechercher", command=self.rechercher, accelerator="Ctrl+F")
         self.menu_bar.add_cascade(label="Édition", menu=self.edit_menu)
 
-        # Configuration de la barre de menu dans la fenêtre
+        #menu affichage
+        self.view_menu = tk.Menu(self.menu_bar, tearoff=0)
+        self.view_menu.add_command(label="Changer taille de police", command=self.changer_police)
+        self.view_menu.add_command(label="Changer couleur de police", command=self.changer_couleur_police)
+        self.view_menu.add_command(label="Mode sombre", command=self.mode_sombre)
+        self.menu_bar.add_cascade(label="Affichage", menu=self.view_menu)
+
         root.config(menu=self.menu_bar)
 
-        # ========== ZONE DE TEXTE PRINCIPALE ==========
-        # Barre de défilement verticale
+        #zone de texte
         self.scrollbar = tk.Scrollbar(root)
-        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)  # Position à droite
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Widget Text principal pour l'édition
         self.zone_texte = tk.Text(
             root,
-            yscrollcommand=self.scrollbar.set,  # Lie à la scrollbar
-            wrap=tk.WORD,  # Retour à la ligne par mots entiers
-            undo=True,  # Active la fonctionnalité d'annulation
-            autoseparators=True,  # Séparateurs automatiques pour undo
-            maxundo=-1  # Nombre illimité d'annulations
+            wrap=tk.WORD,
+            undo=True,
+            font=("Consolas", self.taille_police),
+            fg=self.couleur_police,
+            yscrollcommand=self.scrollbar.set
         )
-        # Placement qui remplit tout l'espace disponible
         self.zone_texte.pack(expand=True, fill=tk.BOTH)
-        # Configuration de la scrollbar pour contrôler la zone de texte
         self.scrollbar.config(command=self.zone_texte.yview)
 
-        # ========== CONFIGURATION DES RACCOURCIS CLAVIER ==========
-        # Lie les combinaisons de touches aux méthodes correspondantes
-        self.zone_texte.bind("<Control-n>", lambda event: self.nouveau_fichier())
-        self.zone_texte.bind("<Control-o>", lambda event: self.ouvrir_fichier())
-        self.zone_texte.bind("<Control-s>", lambda event: self.enregistrer_fichier())
-        self.zone_texte.bind("<Control-z>", lambda event: self.annuler())
-        self.zone_texte.bind("<Control-y>", lambda event: self.retablir())
-        self.zone_texte.bind("<Control-x>", lambda event: self.couper())
-        self.zone_texte.bind("<Control-c>", lambda event: self.copier())
-        self.zone_texte.bind("<Control-v>", lambda event: self.coller())
+        #barre d'état
+        self.status_bar = tk.Label(root, text="Ligne 1, Colonne 1", anchor=tk.W)
+        self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
-        # Variable pour suivre le fichier actuellement ouvert
-        self.fichier_courant = None
+        #raccourci
+        self.zone_texte.bind("<Control-n>", lambda e: self.nouveau_fichier())
+        self.zone_texte.bind("<Control-o>", lambda e: self.ouvrir_fichier())
+        self.zone_texte.bind("<Control-s>", lambda e: self.enregistrer_fichier())
+        self.zone_texte.bind("<Control-f>", lambda e: self.rechercher())
+        self.zone_texte.bind("<KeyRelease>", self.mettre_a_jour_status)
+        self.zone_texte.bind("<ButtonRelease>", self.mettre_a_jour_status)
+        self.zone_texte.bind("<<Modified>>", self.fichier_modifie)
 
-    # ========== MÉTHODES DE GESTION DES FICHIERS ==========
-
+    #fichiers
     def nouveau_fichier(self):
-        """Crée un nouveau document vide en effaçant le contenu actuel"""
-        self.zone_texte.delete(1.0, tk.END)  # Efface du début (ligne 1, colonne 0) à la fin
-        self.fichier_courant = None  # Réinitialise le fichier courant
+        self.zone_texte.delete(1.0, tk.END)
+        self.fichier_courant = None
+        self.root.title("Éditeur de Texte Avancé")
 
     def ouvrir_fichier(self):
-        """
-        Ouvre un fichier existant via un dialogue et charge son contenu
-        dans la zone de texte
-        """
-        # Ouvre le dialogue de sélection de fichier
         fichier = filedialog.askopenfilename(
-            defaultextension=".txt",  # Extension par défaut
-            filetypes=[
-                ("Fichiers texte", "*.txt"),  # Filtre pour les fichiers texte
-                ("Tous les fichiers", "*.*")  # Option pour tous les fichiers
-            ]
+            filetypes=[("Fichiers texte", "*.txt"), ("Tous les fichiers", "*.*")]
         )
-
-        if fichier:  # Si un fichier a été sélectionné (pas d'annulation)
-            try:
-                # Ouverture en mode lecture
-                with open(fichier, "r", encoding='utf-8') as f:
-                    contenu = f.read()  # Lecture du contenu
-
-                # Remplacement du contenu actuel
+        if fichier:
+            with open(fichier, "r", encoding="utf-8") as f:
                 self.zone_texte.delete(1.0, tk.END)
-                self.zone_texte.insert(1.0, contenu)
-                self.fichier_courant = fichier  # Mémorise le fichier ouvert
-            except Exception as e:
-                # Affichage d'une erreur en cas de problème
-                messagebox.showerror(
-                    "Erreur",
-                    f"Impossible d'ouvrir le fichier:\n{str(e)}"
-                )
+                self.zone_texte.insert(1.0, f.read())
+            self.fichier_courant = fichier
+            self.root.title(f"Éditeur de Texte - {fichier}")
 
     def enregistrer_fichier(self):
-        """
-        Enregistre le contenu dans le fichier courant.
-        Si aucun fichier n'est ouvert, appelle enregistrer_sous()
-        """
-        if self.fichier_courant:  # Si un fichier est déjà ouvert
-            try:
-                # Ouverture en mode écriture
-                with open(self.fichier_courant, "w", encoding='utf-8') as f:
-                    # Écrit tout le contenu (de 1.0 = début à END = fin)
-                    f.write(self.zone_texte.get(1.0, tk.END))
-            except Exception as e:
-                messagebox.showerror(
-                    "Erreur",
-                    f"Impossible d'enregistrer le fichier:\n{str(e)}"
-                )
-        else:  # Si nouveau fichier non encore enregistré
-            self.enregistrer_sous()  # Ouvre le dialogue "Enregistrer sous"
+        if self.fichier_courant:
+            with open(self.fichier_courant, "w", encoding="utf-8") as f:
+                f.write(self.zone_texte.get(1.0, tk.END))
+        else:
+            self.enregistrer_sous()
 
     def enregistrer_sous(self):
-        """
-        Ouvre un dialogue pour enregistrer sous un nouveau nom
-        :return: True si l'enregistrement a réussi, False sinon
-        """
-        # Ouvre le dialogue de sauvegarde
-        fichier = filedialog.asksaveasfilename(
-            defaultextension=".txt",
-            filetypes=[
-                ("Fichiers texte", "*.txt"),
-                ("Tous les fichiers", "*.*")
-            ]
-        )
-
-        if fichier:  # Si un emplacement a été choisi
-            try:
-                with open(fichier, "w", encoding='utf-8') as f:
-                    f.write(self.zone_texte.get(1.0, tk.END))
-                self.fichier_courant = fichier  # Mémorise le nouveau fichier
-                return True
-            except Exception as e:
-                messagebox.showerror(
-                    "Erreur",
-                    f"Impossible d'enregistrer le fichier:\n{str(e)}"
-                )
-                return False
-        return False  # Si l'utilisateur a annulé
+        fichier = filedialog.asksaveasfilename(defaultextension=".txt")
+        if fichier:
+            with open(fichier, "w", encoding="utf-8") as f:
+                f.write(self.zone_texte.get(1.0, tk.END))
+            self.fichier_courant = fichier
+            self.root.title(f"Éditeur de Texte - {fichier}")
 
     def quitter(self):
-        """Demande confirmation avant de quitter l'application"""
         if messagebox.askokcancel("Quitter", "Voulez-vous vraiment quitter ?"):
-            self.root.destroy()  # Ferme la fenêtre principale
+            self.root.destroy()
 
-    # ========== MÉTHODES D'ÉDITION ==========
-
+    #édition
     def annuler(self):
-        """Annule la dernière action dans la zone de texte"""
         try:
-            self.zone_texte.edit_undo()  # Utilise le système undo intégré à Tkinter
+            self.zone_texte.edit_undo()
         except:
-            pass  # Ignore les erreurs (par exemple si rien à annuler)
+            pass
 
     def retablir(self):
-        """Rétablit la dernière action annulée"""
         try:
-            self.zone_texte.edit_redo()  # Utilise le système redo intégré
+            self.zone_texte.edit_redo()
         except:
-            pass  # Ignore les erreurs
+            pass
 
     def couper(self):
-        """Coupe le texte sélectionné dans le presse-papier"""
-        self.zone_texte.event_generate("<<Cut>>")  # Génère l'événement de coupe
+        self.zone_texte.event_generate("<<Cut>>")
 
     def copier(self):
-        """Copie le texte sélectionné dans le presse-papier"""
-        self.zone_texte.event_generate("<<Copy>>")  # Génère l'événement de copie
+        self.zone_texte.event_generate("<<Copy>>")
 
     def coller(self):
-        """Colle le texte du presse-papier à la position du curseur"""
-        self.zone_texte.event_generate("<<Paste>>")  # Génère l'événement de collage
+        self.zone_texte.event_generate("<<Paste>>")
+
+    #outils
+    def rechercher(self):
+        mot = simpledialog.askstring("Rechercher", "Mot à chercher :")
+        if not mot:
+            return
+
+        self.zone_texte.tag_remove("highlight", "1.0", tk.END)
+        index = "1.0"
+
+        while True:
+            index = self.zone_texte.search(mot, index, tk.END)
+            if not index:
+                break
+            fin = f"{index}+{len(mot)}c"
+            self.zone_texte.tag_add("highlight", index, fin)
+            index = fin
+
+        self.zone_texte.tag_config("highlight", background="yellow")
+
+    def changer_police(self):
+        taille = simpledialog.askinteger(
+            "Police",
+            "Taille de police :",
+            minvalue=8,
+            maxvalue=40
+        )
+        if taille:
+            self.taille_police = taille
+            self.zone_texte.config(font=("Consolas", self.taille_police))
+
+    def changer_couleur_police(self):
+        couleur = colorchooser.askcolor(title="Choisir la couleur du texte")
+        if couleur[1]:
+            self.couleur_police = couleur[1]
+            self.zone_texte.config(fg=self.couleur_police)
+
+    def mode_sombre(self):
+        if not self.mode_sombre_actif:
+            self.zone_texte.config(
+                bg="#1e1e1e",
+                fg=self.couleur_police,
+                insertbackground="white"
+            )
+            self.mode_sombre_actif = True
+        else:
+            self.zone_texte.config(
+                bg="white",
+                fg=self.couleur_police,
+                insertbackground="black"
+            )
+            self.mode_sombre_actif = False
+
+    #barre d'état
+    def mettre_a_jour_status(self, event=None):
+        ligne, colonne = self.zone_texte.index(tk.INSERT).split(".")
+        self.status_bar.config(
+            text=f"Ligne {ligne}, Colonne {int(colonne)+1}"
+        )
+
+    def fichier_modifie(self, event=None):
+        self.zone_texte.edit_modified(False)
+        titre = "Éditeur de Texte"
+        if self.fichier_courant:
+            titre += f" - {self.fichier_courant}"
+        self.root.title(titre + " *")
 
 
-# Point d'entrée principal du programme
+    #lancement
 if __name__ == "__main__":
-    root = tk.Tk()  # Crée la fenêtre principale
-    editeur = EditeurTexte(root)  # Crée l'instance de l'éditeur
-    root.mainloop()  # Lance la boucle principale de l'interface
+    root = tk.Tk()
+    app = EditeurTexte(root)
+    root.mainloop()
